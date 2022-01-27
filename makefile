@@ -1,11 +1,7 @@
 CC = gcc
 
-all: server client
+all: server
 
 server: server.c
 	clear
 	$(CC) -pthread -Wall server.c -o server
-
-client: client.c
-	clear
-	$(CC) -pthread -Wall client.c -o client
