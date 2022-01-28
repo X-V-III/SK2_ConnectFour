@@ -13,73 +13,155 @@
 #include <pthread.h>
 
 #define PORT 8080
-#define server_address localhost
+#define SERVER_IP "localhost"
 
-// to pass socket descriptor to thread
-struct thread_data_t
+struct game_thread_data
 {
-    int connectionSocket;
+    int player1_socket;
+    int player2_socket;
 };
 
-void *ThreadBehavior(void *t_data)
+// check if the command can be executed
+int checkCommand()
+{
+    return 1;
+}
+
+void *GameThread(void *game_thread_data_t)
 {
     pthread_detach(pthread_self());
+    
+    // stores the current player's turn, 1 by default
+    int player_turn = 1;
 
-    struct thread_data_t *th_data = (struct thread_data_t*)t_data;
-    int client_socket = (*th_data).connectionSocket;
+    struct game_thread_data *gthread_data = (struct game_thread_data*)game_thread_data_t;
+    int player1_socket = (*gthread_data).player1_socket;
+    int player2_socket = (*gthread_data).player2_socket;
+
+    printf("Game thread started with socket descriptors: %d, %d\n", player1_socket, player2_socket);
 
     char buf[1024];
-    memset(buf, 0, 1024);
-    read(client_socket, buf, sizeof(buf));
 
-    printf("Connection established on thread %ld by %d\n", pthread_self(), client_socket);
+    char code[2];
+    strcpy(code, "1");
+    send(player1_socket, &code, strlen(code), 0);
+    strcpy(code, "2");
+    send(player2_socket, &code, strlen(code), 0);
 
-    // exit condition
-    while (1)
+    while(1)
     {
         memset(buf, 0, 1024);
-        read((*th_data).connectionSocket, buf, sizeof(buf));
-        if (strcmp(buf, "exit") == 0)
+        strcpy(code, "0");
+
+        if (player_turn == 1)
         {
-            printf("Client %d closes connection\n", client_socket);
-            break;
+            read(player1_socket, buf, sizeof(buf));
+            printf("Command from player 1: %s\n", buf);
+
+            if (strcmp(buf, "exit") == 0)
+            {
+                printf("Client %d aborts the match\n", player_turn);
+                strcpy(code, "9");
+                send(player1_socket, &code, strlen(code), 0);
+                send(player2_socket, &code, strlen(code), 0);
+                break;
+            }
+
+            else if (checkCommand())
+            {
+                strcpy(code, "0");
+                send(player1_socket, &code, strlen(code), 0);
+                send(player2_socket, &code, strlen(code), 0);
+                send(player2_socket, &buf, strlen(buf), 0);
+                player_turn = 2;
+            }
+
+            
         }
-        
-        printf("Message from %d: %s\n", client_socket, buf);
+        else
+        {
+            read(player2_socket, buf, sizeof(buf));
+            printf("Command from player 2: %s\n", buf);
+
+            if (strcmp(buf, "exit") == 0)
+            {
+                printf("Client %d aborts the match\n", player_turn);
+                strcpy(code, "9");
+                send(player1_socket, &code, strlen(code), 0);
+                send(player2_socket, &code, strlen(code), 0);
+                break;
+            }
+
+            if (checkCommand())
+            {
+                strcpy(code, "0");
+                send(player2_socket, &code, strlen(code), 0);
+                send(player1_socket, &code, strlen(code), 0);
+                send(player1_socket, &buf, strlen(buf), 0);
+                player_turn = 1;
+            }
+
+            
+        }   
     }
-    
-    printf("Thread %ld exits\n", pthread_self());
+
+    printf("Game thread %ld exits\n", pthread_self());
     pthread_exit(NULL);
 }
 
 //funkcja obsługująca połączenie z nowym klientem
-void handleConnection(int connection_socket_descriptor) 
+void handleConnections(int server_socket_descriptor) 
 {
+    pthread_t game_thread;
+    int player1 = 0;
+    int player2 = 0;
+
+    int connection_socket_descriptor;
+
+    while(player1 == 0 || player2 == 0)
+    {
+        connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
+
+        if (connection_socket_descriptor < 0)
+        {
+           printf("A player tried to connect, but failed. Code: %d\n", connection_socket_descriptor);
+           exit(1);
+        }
+
+        if (player1 == 0)
+        {
+            player1 = connection_socket_descriptor;
+        }
+        else
+        {
+            player2 = connection_socket_descriptor;
+        }
+        printf("Player connected to descriptor: %d\n", connection_socket_descriptor);
+    }
+
     int create_result = 0;
-
-    pthread_t thread1;
     
-    struct thread_data_t *t_data = malloc(sizeof(struct thread_data_t));
-    (*t_data).connectionSocket = connection_socket_descriptor;
+    // prepare socket data for game thread
+    struct game_thread_data *game_thread_data_t = malloc(sizeof(struct game_thread_data));
+    //memset(game_thread_data_t, 0, sizeof(struct game_thread_data));
+    (*game_thread_data_t).player1_socket = player1;
+    (*game_thread_data_t).player2_socket = player2;
 
-    create_result = pthread_create(&thread1, NULL, ThreadBehavior, (void *)t_data);
+    create_result = pthread_create(&game_thread, NULL, GameThread, (void *)game_thread_data_t);
     if (create_result){
        printf("Can't create thread, code: %d\n", create_result);
        exit(-1);
     }
+
+    pthread_join(game_thread, NULL);
 }
 
 int main(int argc, char *argv[])
 {
-	int server_socket_descriptor, connection_socket_descriptor;
+	int server_socket_descriptor;
 	int opt = 1;
-	int player1 = 0, player2 = 0;
 
 	struct sockaddr_in server_address;
-	int addrlen = sizeof(server_address);
-
-	char buffer[1024] = {0};
-	char *message = "Message from server";
 
 	// Creating socket file descriptor
     if ((server_socket_descriptor = socket(AF_INET, SOCK_STREAM, 0)) == 0)
@@ -113,29 +195,9 @@ int main(int argc, char *argv[])
         exit(EXIT_FAILURE);
     }
 
-    while(1)
-    {
-        if (player1 == 0 || player2 == 0)
-        {
-            connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
-            if (connection_socket_descriptor < 0)
-            {
-               fprintf(stderr, "%s: Błąd przy próbie utworzenia gniazda dla połączenia.\n", argv[0]);
-               exit(1);
-            }
+    printf("Server started at: %s:%d\n", SERVER_IP, PORT);
 
-            if (player1 == 0)
-            {
-                player1 = connection_socket_descriptor;
-            }
-            else
-            {
-                player2 = connection_socket_descriptor;
-            }
-
-            handleConnection(connection_socket_descriptor);
-        }
-    }
+    handleConnections(server_socket_descriptor);
 
     close(server_socket_descriptor);
 	return 0;
