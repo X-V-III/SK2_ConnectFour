@@ -1,15 +1,22 @@
 #!/usr/bin/env python3
 
 import socket
+import re
 
 HOST = '127.0.0.1'  # The server's hostname or IP address
 PORT = 8080        # The port used by the server
 
+def isGoodCommand(command):
+    if (len(command) != 5):
+        return 0
+    pattern = re.compile("^[0-9][0-9];[0-9][0-9]$")
+    if (not pattern.match(command)):
+        return 0
+    return 1
+
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     print('Connected to server')
-    #mess = s.recv(1024)
-    #print(repr(mess))
 
     code = ""
 
@@ -22,8 +29,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     if myPlayerNumber == currentPlayerTurn:
         print("[Your turn]")
 
-        myCommand = input("Enter command: ").encode()
-        s.sendall(myCommand)
+        myCommand = input("Enter command: ")
+        while (not isGoodCommand(myCommand)):
+            myCommand = input("Invalid command, enter new command: ")
+        s.sendall(myCommand.encode())
 
     else:
         print("[Opponent turn]")
@@ -40,20 +49,24 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 currentPlayerTurn = b'1'
 
             if myPlayerNumber == currentPlayerTurn:
-                opponentCommand = s.recv(1024)
+                opponentCommand = s.recv(5)
                 print(repr(opponentCommand))
 
                 print("[Your turn]")
 
-                myCommand = input("Enter command: ").encode()
-                s.sendall(myCommand)
+                myCommand = input("Enter command: ")
+                while (not isGoodCommand(myCommand)):
+                    myCommand = input("Invalid command, enter new command: ")
+                s.sendall(myCommand.encode())
 
             else:
                 print("[Opponent turn]")
 
         # bad command
         if code == b'1':
-            pass
+            print("Invalid command")
+            myCommand = input("Enter new command: ").encode()
+            s.sendall(myCommand)
     
         if code == b'9':
             break

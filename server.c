@@ -14,6 +14,10 @@
 
 #define PORT 8080
 #define SERVER_IP "localhost"
+#define EXIT_COMMADND "00;00"
+#define EXIT_CODE "9"
+#define NEXT_TURN_CODE "0"
+#define WRONG_COMMAND_CODE "1"
 
 struct game_thread_data
 {
@@ -21,8 +25,8 @@ struct game_thread_data
     int player2_socket;
 };
 
-// check if the command can be executed
-int checkCommand()
+// check if the command is valid
+int checkCommand(char* command)
 {
     return 1;
 }
@@ -40,68 +44,75 @@ void *GameThread(void *game_thread_data_t)
 
     printf("Game thread started with socket descriptors: %d, %d\n", player1_socket, player2_socket);
 
-    char buf[1024];
+    char command[5];
 
     char code[2];
-    strcpy(code, "1");
+    strcpy(code, WRONG_COMMAND_CODE);
     send(player1_socket, &code, strlen(code), 0);
     strcpy(code, "2");
     send(player2_socket, &code, strlen(code), 0);
 
     while(1)
     {
-        memset(buf, 0, 1024);
-        strcpy(code, "0");
+        memset(command, 0, 5);
+        strcpy(code, NEXT_TURN_CODE);
 
         if (player_turn == 1)
         {
-            read(player1_socket, buf, sizeof(buf));
-            printf("Command from player 1: %s\n", buf);
+            read(player1_socket, command, sizeof(command));
+            printf("Command from player 1: %s\n", command);
 
-            if (strcmp(buf, "exit") == 0)
+            if (strcmp(command, EXIT_COMMADND) == 0)
             {
                 printf("Client %d aborts the match\n", player_turn);
-                strcpy(code, "9");
+                strcpy(code, EXIT_CODE);
                 send(player1_socket, &code, strlen(code), 0);
                 send(player2_socket, &code, strlen(code), 0);
                 break;
             }
-
-            else if (checkCommand())
+            else if (checkCommand(command))
             {
-                strcpy(code, "0");
+                strcpy(code, NEXT_TURN_CODE);
                 send(player1_socket, &code, strlen(code), 0);
                 send(player2_socket, &code, strlen(code), 0);
-                send(player2_socket, &buf, strlen(buf), 0);
+                send(player2_socket, &command, strlen(command), 0);
                 player_turn = 2;
             }
-
-            
+            else
+            {
+                printf("Client %d sent invalid command\n", player_turn);
+                strcpy(code, WRONG_COMMAND_CODE);
+                send(player1_socket, &code, strlen(code), 0);
+            }
         }
         else
         {
-            read(player2_socket, buf, sizeof(buf));
-            printf("Command from player 2: %s\n", buf);
+            read(player2_socket, command, sizeof(command));
+            printf("Command from player 2: %s\n", command);
 
-            if (strcmp(buf, "exit") == 0)
+            if (strcmp(command, EXIT_COMMADND) == 0)
             {
                 printf("Client %d aborts the match\n", player_turn);
-                strcpy(code, "9");
+                strcpy(code, EXIT_CODE);
                 send(player1_socket, &code, strlen(code), 0);
                 send(player2_socket, &code, strlen(code), 0);
                 break;
             }
 
-            if (checkCommand())
+            if (checkCommand(command))
             {
-                strcpy(code, "0");
+                strcpy(code, NEXT_TURN_CODE);
                 send(player2_socket, &code, strlen(code), 0);
                 send(player1_socket, &code, strlen(code), 0);
-                send(player1_socket, &buf, strlen(buf), 0);
+                send(player1_socket, &command, strlen(command), 0);
                 player_turn = 1;
             }
-
-            
+            else
+            {
+                printf("Client %d sent invalid command\n", player_turn);
+                strcpy(code, WRONG_COMMAND_CODE);
+                send(player1_socket, &code, strlen(code), 0);
+            }
         }   
     }
 
@@ -143,7 +154,6 @@ void handleConnections(int server_socket_descriptor)
     
     // prepare socket data for game thread
     struct game_thread_data *game_thread_data_t = malloc(sizeof(struct game_thread_data));
-    //memset(game_thread_data_t, 0, sizeof(struct game_thread_data));
     (*game_thread_data_t).player1_socket = player1;
     (*game_thread_data_t).player2_socket = player2;
 
