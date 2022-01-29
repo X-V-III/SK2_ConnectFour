@@ -14,10 +14,12 @@
 
 #define PORT 8080
 #define SERVER_IP "localhost"
-#define EXIT_COMMADND "00;00"
+#define EXIT_COMMADND "00"
 #define EXIT_CODE "9"
 #define NEXT_TURN_CODE "0"
 #define WRONG_COMMAND_CODE "1"
+#define YOU_WIN_CODE "2"
+#define OPPONENT_WINS_CODE "3"
 
 struct game_thread_data
 {
@@ -44,7 +46,7 @@ void *GameThread(void *game_thread_data_t)
 
     printf("Game thread started with socket descriptors: %d, %d\n", player1_socket, player2_socket);
 
-    char command[5];
+    char command[3];
 
     char code[2];
     strcpy(code, WRONG_COMMAND_CODE);
@@ -57,7 +59,7 @@ void *GameThread(void *game_thread_data_t)
 
     while(1)
     {
-        memset(command, 0, 5);
+        memset(command, 0, 2);
         strcpy(code, NEXT_TURN_CODE);
 
         if (player_turn == 1)
