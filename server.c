@@ -52,6 +52,9 @@ void *GameThread(void *game_thread_data_t)
     strcpy(code, "2");
     send(player2_socket, &code, strlen(code), 0);
 
+    int temp_self = player1_socket;
+    int temp_opponent = player2_socket;
+
     while(1)
     {
         memset(command, 0, 5);
@@ -59,61 +62,41 @@ void *GameThread(void *game_thread_data_t)
 
         if (player_turn == 1)
         {
-            read(player1_socket, command, sizeof(command));
-            printf("Command from player 1: %s\n", command);
-
-            if (strcmp(command, EXIT_COMMADND) == 0)
-            {
-                printf("Client %d aborts the match\n", player_turn);
-                strcpy(code, EXIT_CODE);
-                send(player1_socket, &code, strlen(code), 0);
-                send(player2_socket, &code, strlen(code), 0);
-                break;
-            }
-            else if (checkCommand(command))
-            {
-                strcpy(code, NEXT_TURN_CODE);
-                send(player1_socket, &code, strlen(code), 0);
-                send(player2_socket, &code, strlen(code), 0);
-                send(player2_socket, &command, strlen(command), 0);
-                player_turn = 2;
-            }
-            else
-            {
-                printf("Client %d sent invalid command\n", player_turn);
-                strcpy(code, WRONG_COMMAND_CODE);
-                send(player1_socket, &code, strlen(code), 0);
-            }
+            temp_self = player1_socket;
+            temp_opponent = player2_socket;
         }
         else
         {
-            read(player2_socket, command, sizeof(command));
-            printf("Command from player 2: %s\n", command);
+            temp_self = player2_socket;
+            temp_opponent = player1_socket;
+        }
 
-            if (strcmp(command, EXIT_COMMADND) == 0)
-            {
-                printf("Client %d aborts the match\n", player_turn);
-                strcpy(code, EXIT_CODE);
-                send(player1_socket, &code, strlen(code), 0);
-                send(player2_socket, &code, strlen(code), 0);
-                break;
-            }
+        read(temp_self, command, sizeof(command));
+        printf("Command from player %d: %s\n", player_turn, command);
 
-            if (checkCommand(command))
-            {
-                strcpy(code, NEXT_TURN_CODE);
-                send(player2_socket, &code, strlen(code), 0);
-                send(player1_socket, &code, strlen(code), 0);
-                send(player1_socket, &command, strlen(command), 0);
-                player_turn = 1;
-            }
-            else
-            {
-                printf("Client %d sent invalid command\n", player_turn);
-                strcpy(code, WRONG_COMMAND_CODE);
-                send(player1_socket, &code, strlen(code), 0);
-            }
-        }   
+        if (strcmp(command, EXIT_COMMADND) == 0)
+        {
+            printf("Client %d aborts the match\n", player_turn);
+            strcpy(code, EXIT_CODE);
+            send(temp_self, &code, strlen(code), 0);
+            send(temp_opponent, &code, strlen(code), 0);
+            break;
+        }
+        else if (checkCommand(command))
+        {
+            strcpy(code, NEXT_TURN_CODE);
+            send(temp_self, &code, strlen(code), 0);
+            send(temp_opponent, &code, strlen(code), 0);
+            send(temp_opponent, &command, strlen(command), 0);
+            if (player_turn == 1) player_turn = 2;
+            else player_turn = 1;
+        }
+        else
+        {
+            printf("Client %d sent invalid command\n", player_turn);
+            strcpy(code, WRONG_COMMAND_CODE);
+            send(temp_self, &code, strlen(code), 0);
+        }
     }
 
     printf("Game thread %ld exits\n", pthread_self());
