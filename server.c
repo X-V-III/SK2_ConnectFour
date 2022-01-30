@@ -20,6 +20,8 @@
 #define WRONG_COMMAND_CODE "1"
 #define YOU_WIN_CODE "2"
 #define OPPONENT_WINS_CODE "3"
+#define ROW_COUNT 6
+#define COLUMN_COUNT 7
 
 struct game_thread_data
 {
@@ -27,15 +29,55 @@ struct game_thread_data
     int player2_socket;
 };
 
-// check if the command is valid
-int checkCommand(char* command)
+int executeMove(int* board, char* move, int player)
 {
+    int col = atoi(move) - 1;
+    int row;
+    for (int i = 0; i < ROW_COUNT; i++)
+    {
+        if (board[col+i*COLUMN_COUNT] == 0)
+            row = i;
+    }
+    board[col+row*COLUMN_COUNT] = player;
     return 1;
 }
+
+int validateMove(int* board, char* move)
+{
+    int col = atoi(move) - 1;
+    if (board[col] != 0) return 0;
+    return 1;
+}
+
+// returns one dimensional array representing game board
+int* createBoard(int x, int y)
+{
+    int *board = malloc(sizeof(int) * x * y);
+    for (int i = 0; i < x*y; i++)
+    {
+        board[i] = 0;
+    }
+    return board;
+}
+
+void printBoard(int *board)
+{
+    for (int i = 0; i < ROW_COUNT; i++)
+    {
+        for (int j = 0; j < COLUMN_COUNT; j++)
+        {
+            printf("%d ", board[j+i*COLUMN_COUNT]);
+        }
+        printf("\n");
+    }
+}
+
 
 void *GameThread(void *game_thread_data_t)
 {
     pthread_detach(pthread_self());
+
+    int* board = createBoard(COLUMN_COUNT, ROW_COUNT);
     
     // stores the current player's turn, 1 by default
     int player_turn = 1;
@@ -62,17 +104,6 @@ void *GameThread(void *game_thread_data_t)
         memset(command, 0, 2);
         strcpy(code, NEXT_TURN_CODE);
 
-        if (player_turn == 1)
-        {
-            temp_self = player1_socket;
-            temp_opponent = player2_socket;
-        }
-        else
-        {
-            temp_self = player2_socket;
-            temp_opponent = player1_socket;
-        }
-
         read(temp_self, command, sizeof(command));
         printf("Command from player %d: %s\n", player_turn, command);
 
@@ -84,14 +115,27 @@ void *GameThread(void *game_thread_data_t)
             send(temp_opponent, &code, strlen(code), 0);
             break;
         }
-        else if (checkCommand(command))
+        else if (validateMove(board, command))
         {
+            executeMove(board, command, player_turn);
+            printBoard(board);
             strcpy(code, NEXT_TURN_CODE);
             send(temp_self, &code, strlen(code), 0);
             send(temp_opponent, &code, strlen(code), 0);
             send(temp_opponent, &command, strlen(command), 0);
             if (player_turn == 1) player_turn = 2;
             else player_turn = 1;
+
+            if (player_turn == 1)
+            {
+                temp_self = player1_socket;
+                temp_opponent = player2_socket;
+            }
+            else
+            {
+                temp_self = player2_socket;
+                temp_opponent = player1_socket;
+            }
         }
         else
         {

@@ -18,6 +18,7 @@ WHITE = (255,255,255)
 
 ROW_COUNT = 6
 COLUMN_COUNT = 7
+SQUARESIZE = 60
 
 # GAME METHODS ****************
 
@@ -83,6 +84,7 @@ def parseAndExecuteMove(board, move, number):
     if is_valid_location(board, col):
         row = get_next_open_row(board, col)
         drop_piece(board, row, col, number)
+        draw_board(board)
 
 
 # *****************************
@@ -104,12 +106,8 @@ def getCommand(board):
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pygame.draw.rect(screen, BLACK, (0,0, width, SQUARESIZE))
                 posx = event.pos[0]
-                
                 col = int(math.floor(posx/SQUARESIZE))
-
                 command = "0" + str(col+1)
-
-                draw_board(board)
     return command
 
 
@@ -130,27 +128,22 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     code = s.recv(1)
     print("Match started as Player " + repr(code)[2])
 
-    myPlayerNumber = code
-    currentPlayerTurn = b'1'
+    myPlayerNumber = code.decode("utf-8")
+    currentPlayerTurn = '1'
 
     # GAME SETUP *******************
 
     board = create_board()
-    print_board(board)
-    game_over = False
+    
     myColor = RED
-    if (myPlayerNumber == b'2'):
+    if (myPlayerNumber == '2'):
         myColor = BLUE
-    myNumber = 1
-    if (myPlayerNumber == b'2'):
-        myNumber = 2
-    opponentNumber = 2
-    if (myNumber == 2):
-        opponentNumber = 1
+    opponentNumber = '2'
+    if (myPlayerNumber == '2'):
+        opponentNumber = '1'
 
     pygame.init()
-
-    SQUARESIZE = 100
+    pygame.display.set_caption("Player " + myPlayerNumber)
 
     width = COLUMN_COUNT * SQUARESIZE
     height = (ROW_COUNT+1) * SQUARESIZE
@@ -167,51 +160,36 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
     # ******************************
 
-    if myPlayerNumber == currentPlayerTurn:
-        print("[Your turn]")
+    while(1):
+        if (currentPlayerTurn == myPlayerNumber):
+            print("[Your turn]")
+            myCommand = getCommand(board)
+            s.sendall(myCommand.encode())
+            code = s.recv(1).decode("utf-8")
 
-        myCommand = getCommand(board)
-        parseAndExecuteMove(board, myCommand, myNumber)
-        draw_board(board)
-        print(f"myCommand: {myCommand}")
-        s.sendall(myCommand.encode())
+            if (code == '9'):
+                print("Exitting")
+                break;
 
-    else:
-        print("[Opponent turn]")
-
-    while 1:
-        code = s.recv(1).decode("utf-8")
-        print("Server response code: " + repr(code))
-
-        # next turn
-        if code == '0':
-
-            if currentPlayerTurn == b'1':
-                currentPlayerTurn = b'2'
-            else:
-                currentPlayerTurn = b'1'
-
-            if myPlayerNumber == currentPlayerTurn:
-                opponentCommand = s.recv(2).decode("utf-8")
-                print(f"opponentCommand: {opponentCommand}")
-                parseAndExecuteMove(board, opponentCommand, opponentNumber)
-                draw_board(board)
-
-                print("[Your turn]")
-
+            if (code == '1'):
+                print("Invalid move")
                 myCommand = getCommand(board)
-                parseAndExecuteMove(board, myCommand, myNumber)
-                draw_board(board)
                 s.sendall(myCommand.encode())
+                code = s.recv(1).decode("utf-8")
 
-            else:
-                print("[Opponent turn]")
+            if (code == '0'):
+                parseAndExecuteMove(board, myCommand, int(myPlayerNumber))
+                currentPlayerTurn = opponentNumber
 
-        # bad command
-        if code == '1':
-            print("Invalid command")
-            myCommand = input("Enter new command: ").encode()
-            s.sendall(myCommand)
-    
-        if code == '9':
-            break
+        else: # if (currentPlayerTurn == opponentNumber):
+            print("[Opponent turn]")
+            code = s.recv(1).decode("utf-8")
+
+            if (code == '9'):
+                print("Exitting")
+                break;
+
+            if (code == '0'):
+                opponentMove = s.recv(2).decode("utf-8")
+                parseAndExecuteMove(board, opponentMove, int(opponentNumber))
+                currentPlayerTurn = myPlayerNumber
