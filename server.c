@@ -174,11 +174,11 @@ void *GameThread(void *game_thread_data_t)
         strcpy(code, NEXT_TURN_CODE);
 
         read(temp_self, command, sizeof(command));
-        printf("Command from player %d: %s\n", player_turn, command);
+        //printf("Command from player %d: %s\n", player_turn, command);
 
         if (strcmp(command, EXIT_COMMADND) == 0)
         {
-            printf("Client %d aborts the match\n", player_turn);
+            printf("Client %d aborts the match for descriptors %d and %d\n", player_turn, player1_socket, player2_socket);
             strcpy(code, EXIT_CODE);
             send(temp_self, &code, strlen(code), 0);
             send(temp_opponent, &code, strlen(code), 0);
@@ -187,7 +187,7 @@ void *GameThread(void *game_thread_data_t)
         else if (validateMove(board, command))
         {
             executeMove(board, command, player_turn);
-            printBoard(board);
+            //printBoard(board);
 
             if (isWinningState(board, player_turn))
             {
@@ -226,7 +226,9 @@ void *GameThread(void *game_thread_data_t)
         }
     }
 
-    printf("Game thread %ld exits\n", pthread_self());
+    printf("Game thread for descriptors %d and %d exits\n", player1_socket, player2_socket);
+    close(player1_socket);
+    close(player2_socket);
     pthread_exit(NULL);
 }
 
@@ -236,44 +238,51 @@ void handleConnections(int server_socket_descriptor)
     pthread_t game_thread;
     int player1 = 0;
     int player2 = 0;
+    int connection_socket_descriptor = 0;
 
-    int connection_socket_descriptor;
-
-    while(player1 == 0 || player2 == 0)
+    while(1)
     {
-        connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
+        player1 = 0;
+        player2 = 0;
+        connection_socket_descriptor = 0;
 
-        if (connection_socket_descriptor < 0)
+        while(player1 == 0 || player2 == 0)
         {
-           printf("A player tried to connect, but failed. Code: %d\n", connection_socket_descriptor);
-           exit(1);
+            connection_socket_descriptor = accept(server_socket_descriptor, NULL, NULL);
+
+            if (connection_socket_descriptor < 0)
+            {
+               printf("A player tried to connect, but failed. Code: %d\n", connection_socket_descriptor);
+               exit(1);
+            }
+
+            if (player1 == 0)
+            {
+                player1 = connection_socket_descriptor;
+            }
+            else
+            {
+                player2 = connection_socket_descriptor;
+            }
+            printf("Player connected to descriptor: %d\n", connection_socket_descriptor);
         }
 
-        if (player1 == 0)
-        {
-            player1 = connection_socket_descriptor;
+        int create_result = 0;
+        
+        // prepare socket data for game thread
+        struct game_thread_data *game_thread_data_t = malloc(sizeof(struct game_thread_data));
+        (*game_thread_data_t).player1_socket = player1;
+        (*game_thread_data_t).player2_socket = player2;
+
+        create_result = pthread_create(&game_thread, NULL, GameThread, (void *)game_thread_data_t);
+        if (create_result){
+           printf("Can't create thread, code: %d\n", create_result);
+           exit(-1);
         }
-        else
-        {
-            player2 = connection_socket_descriptor;
-        }
-        printf("Player connected to descriptor: %d\n", connection_socket_descriptor);
+
+        //pthread_join(game_thread, NULL);
     }
 
-    int create_result = 0;
-    
-    // prepare socket data for game thread
-    struct game_thread_data *game_thread_data_t = malloc(sizeof(struct game_thread_data));
-    (*game_thread_data_t).player1_socket = player1;
-    (*game_thread_data_t).player2_socket = player2;
-
-    create_result = pthread_create(&game_thread, NULL, GameThread, (void *)game_thread_data_t);
-    if (create_result){
-       printf("Can't create thread, code: %d\n", create_result);
-       exit(-1);
-    }
-
-    pthread_join(game_thread, NULL);
 }
 
 int main(int argc, char *argv[])
