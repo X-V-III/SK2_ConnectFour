@@ -28,9 +28,6 @@ def create_board():
 def drop_piece(board, row, col, piece):
     board[row][col] = piece
 
-def is_valid_location(board, col):
-    return board[ROW_COUNT-1][col] == 0
-
 def get_next_open_row(board, col):
     for r in range(ROW_COUNT):
         if board[r][col] == 0:
@@ -52,10 +49,9 @@ def draw_board(board):
 
 def parseAndExecuteMove(board, move, number):
     col = int(move) - 1
-    if is_valid_location(board, col):
-        row = get_next_open_row(board, col)
-        drop_piece(board, row, col, number)
-        draw_board(board)
+    row = get_next_open_row(board, col)
+    drop_piece(board, row, col, number)
+    draw_board(board)
 
 def getCommand(board):
     command = ""
