@@ -4,7 +4,7 @@
 Client-Server ConnectFour game for 2 players.  
 The server is written in C using Socket.h and pthread.h  
 The client has GUI and is implemented in Python using PyGame and Socket libraries  
-All logic is handled by the server
+All logic and game state storage is handled by the server
 
 ## Protocol
 ### Server -> Clients
@@ -19,3 +19,19 @@ The first byte can be one of the following:
 ### Client -> Server
 Clients send three byte messages, consisting of two digits and EOL  
 Two digits are the number of column on which a player wants to drop their chip
+
+## Prerequisites
+* Python 3
+  * numpy
+  * PyGame
+
+## Compilation and running
+Server:
+```
+make
+./server
+```
+Clinet:
+```
+python3 client.py <SERVER_ADDERSS> <PORT>
+```
