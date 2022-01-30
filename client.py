@@ -13,7 +13,6 @@ PORT = 8080        # The port used by the server
 BLUE = (0,0,255)
 BLACK = (0,0,0)
 RED = (255,0,0)
-YELLOW = (255,255,0)
 WHITE = (255,255,255)
 
 ROW_COUNT = 6
@@ -37,34 +36,6 @@ def get_next_open_row(board, col):
         if board[r][col] == 0:
             return r
 
-def print_board(board):
-    print(np.flip(board, 0))
-
-def winning_move(board, piece):
-    # Check horizontal locations for win
-    for c in range(COLUMN_COUNT-3):
-        for r in range(ROW_COUNT):
-            if board[r][c] == piece and board[r][c+1] == piece and board[r][c+2] == piece and board[r][c+3] == piece:
-                return True
-
-    # Check vertical locations for win
-    for c in range(COLUMN_COUNT):
-        for r in range(ROW_COUNT-3):
-            if board[r][c] == piece and board[r+1][c] == piece and board[r+2][c] == piece and board[r+3][c] == piece:
-                return True
-
-    # Check positively sloped diaganols
-    for c in range(COLUMN_COUNT-3):
-        for r in range(ROW_COUNT-3):
-            if board[r][c] == piece and board[r+1][c+1] == piece and board[r+2][c+2] == piece and board[r+3][c+3] == piece:
-                return True
-
-    # Check negatively sloped diaganols
-    for c in range(COLUMN_COUNT-3):
-        for r in range(3, ROW_COUNT):
-            if board[r][c] == piece and board[r-1][c+1] == piece and board[r-2][c+2] == piece and board[r-3][c+3] == piece:
-                return True
-
 def draw_board(board):
     for c in range(COLUMN_COUNT):
         for r in range(ROW_COUNT):
@@ -85,9 +56,6 @@ def parseAndExecuteMove(board, move, number):
         row = get_next_open_row(board, col)
         drop_piece(board, row, col, number)
         draw_board(board)
-
-
-# *****************************
 
 def getCommand(board):
     command = ""
@@ -110,86 +78,107 @@ def getCommand(board):
                 command = "0" + str(col+1)
     return command
 
+# *****************************
 
-def isGoodCommand(command):
-    if (len(command) != 2):
-        return 0
-    pattern = re.compile("^[0-9][0-9]$")
-    if (not pattern.match(command)):
-        return 0
-    return 1
+if __name__ == "__main__":
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-    s.connect((HOST, PORT))
-    print('Connected to server')
+    if (len(sys.argv) != 3):
+        print("Usage: python3 client.py \'SERVER_ADDRESS\' \'PORT\'")
+        exit(1)
 
-    code = ""
+    HOST = sys.argv[1]
+    PORT = int(sys.argv[2])
 
-    code = s.recv(1)
-    print("Match started as Player " + repr(code)[2])
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((HOST, PORT))
+        print('Connected to server')
 
-    myPlayerNumber = code.decode("utf-8")
-    currentPlayerTurn = '1'
+        code = ""
 
-    # GAME SETUP *******************
+        code = s.recv(1)
+        print("Match started as Player " + repr(code)[2])
 
-    board = create_board()
-    
-    myColor = RED
-    if (myPlayerNumber == '2'):
-        myColor = BLUE
-    opponentNumber = '2'
-    if (myPlayerNumber == '2'):
-        opponentNumber = '1'
+        myPlayerNumber = code.decode("utf-8")
+        currentPlayerTurn = '1'
 
-    pygame.init()
-    pygame.display.set_caption("Player " + myPlayerNumber)
+        # GAME SETUP *******************
 
-    width = COLUMN_COUNT * SQUARESIZE
-    height = (ROW_COUNT+1) * SQUARESIZE
+        board = create_board()
+        
+        myColor = RED
+        if (myPlayerNumber == '2'):
+            myColor = BLUE
+        opponentNumber = '2'
+        if (myPlayerNumber == '2'):
+            opponentNumber = '1'
 
-    size = (width, height)
+        pygame.init()
+        pygame.display.set_caption("Player " + myPlayerNumber)
 
-    RADIUS = int(SQUARESIZE/2 - 5)
+        width = COLUMN_COUNT * SQUARESIZE
+        height = (ROW_COUNT+1) * SQUARESIZE
 
-    screen = pygame.display.set_mode(size)
-    draw_board(board)
-    pygame.display.update()
+        size = (width, height)
 
-    myfont = pygame.font.SysFont("monospace", 75)
+        RADIUS = int(SQUARESIZE/2 - 5)
 
-    # ******************************
+        screen = pygame.display.set_mode(size)
+        draw_board(board)
+        pygame.display.update()
 
-    while(1):
-        if (currentPlayerTurn == myPlayerNumber):
-            print("[Your turn]")
-            myCommand = getCommand(board)
-            s.sendall(myCommand.encode())
-            code = s.recv(1).decode("utf-8")
+        myfont = pygame.font.SysFont("monospace", 35)
 
-            if (code == '9'):
-                print("Exitting")
-                break;
+        # ******************************
 
-            if (code == '1'):
-                print("Invalid move")
+        while(1):
+            if (currentPlayerTurn == myPlayerNumber):
+                print("[Your turn]")
                 myCommand = getCommand(board)
                 s.sendall(myCommand.encode())
                 code = s.recv(1).decode("utf-8")
 
-            if (code == '0'):
-                parseAndExecuteMove(board, myCommand, int(myPlayerNumber))
-                currentPlayerTurn = opponentNumber
+                if (code == '9'):
+                    print("Exitting")
+                    break;
 
-        else: # if (currentPlayerTurn == opponentNumber):
-            print("[Opponent turn]")
-            code = s.recv(1).decode("utf-8")
+                if (code == '1'):
+                    print("Invalid move")
+                    myCommand = getCommand(board)
+                    s.sendall(myCommand.encode())
+                    code = s.recv(1).decode("utf-8")
 
-            if (code == '9'):
-                print("Exitting")
-                break;
+                if (code == '2'):
+                    parseAndExecuteMove(board, myCommand, int(myPlayerNumber))
+                    print("You Win!")
+                    label = myfont.render("Player " + myPlayerNumber + " wins!", 1, WHITE)
+                    screen.blit(label, (20,20))
+                    draw_board(board)
+                    pygame.time.wait(5000)
+                    break;
 
-            if (code == '0'):
-                opponentMove = s.recv(2).decode("utf-8")
-                parseAndExecuteMove(board, opponentMove, int(opponentNumber))
-                currentPlayerTurn = myPlayerNumber
+                if (code == '0'):
+                    parseAndExecuteMove(board, myCommand, int(myPlayerNumber))
+                    currentPlayerTurn = opponentNumber
+
+            else: # if (currentPlayerTurn == opponentNumber):
+                print("[Opponent turn]")
+                code = s.recv(1).decode("utf-8")
+
+                if (code == '9'):
+                    print("Exitting")
+                    break;
+
+                if (code == '3'):
+                    opponentMove = s.recv(2).decode("utf-8")
+                    parseAndExecuteMove(board, opponentMove, int(opponentNumber))
+                    print("You Lost :(")
+                    label = myfont.render("Player " + opponentNumber + " wins!", 1, WHITE)
+                    screen.blit(label, (20,20))
+                    draw_board(board)
+                    pygame.time.wait(5000)
+                    break;
+
+                if (code == '0'):
+                    opponentMove = s.recv(2).decode("utf-8")
+                    parseAndExecuteMove(board, opponentMove, int(opponentNumber))
+                    currentPlayerTurn = myPlayerNumber

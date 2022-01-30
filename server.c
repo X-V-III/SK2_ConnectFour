@@ -60,6 +60,75 @@ int* createBoard(int x, int y)
     return board;
 }
 
+int getBoardElement(int* board, int y, int x)
+{
+    return board[x + y * COLUMN_COUNT];
+}
+
+int isWinningState(int* board, int player)
+{
+    // Check horizontal locations for win
+    for (int y = 0; y < ROW_COUNT; ++y)
+    {
+        for (int x = 0; x < COLUMN_COUNT-3; ++x)
+        {
+            if (getBoardElement(board, y, x) == player &&
+                    getBoardElement(board, y, x+1) == player &&
+                    getBoardElement(board, y, x+2) == player &&
+                    getBoardElement(board, y, x+3) == player)
+            {
+                return 1;
+            }
+        }
+    }
+
+    // Check vertical locations for win
+    for (int y = 0; y < ROW_COUNT - 3; ++y)
+    {
+        for (int x = 0; x < COLUMN_COUNT; ++x)
+        {
+            if (getBoardElement(board, y, x) == player &&
+                    getBoardElement(board, y+1, x) == player &&
+                    getBoardElement(board, y+2, x) == player &&
+                    getBoardElement(board, y+3, x) == player)
+            {
+                return 1;
+            }
+        }
+    }
+
+    // Check positively sloped diagonals
+    for (int y = 0; y < ROW_COUNT-3; ++y)
+    {
+        for (int x = 0; x < COLUMN_COUNT-3; ++x)
+        {
+            if (getBoardElement(board, y, x) == player &&
+                    getBoardElement(board, y+1, x+1) == player &&
+                    getBoardElement(board, y+2, x+2) == player &&
+                    getBoardElement(board, y+3, x+3) == player)
+            {
+                return 1;
+            }
+        }
+    }
+
+    // Check negatively sloped diagonals
+    for (int y = 3; y < ROW_COUNT; ++y)
+    {
+        for (int x = 0; x < COLUMN_COUNT-3; ++x)
+        {
+            if (getBoardElement(board, y, x) == player &&
+                    getBoardElement(board, y-1, x+1) == player &&
+                    getBoardElement(board, y-2, x+2) == player &&
+                    getBoardElement(board, y-3, x+3) == player)
+            {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 void printBoard(int *board)
 {
     for (int i = 0; i < ROW_COUNT; i++)
@@ -119,10 +188,22 @@ void *GameThread(void *game_thread_data_t)
         {
             executeMove(board, command, player_turn);
             printBoard(board);
+
+            if (isWinningState(board, player_turn))
+            {
+                strcpy(code, YOU_WIN_CODE);
+                send(temp_self, &code, strlen(code), 0);
+                strcpy(code, OPPONENT_WINS_CODE);
+                send(temp_opponent, &code, strlen(code), 0);
+                send(temp_opponent, &command, strlen(command), 0);
+                break;
+            }
+
             strcpy(code, NEXT_TURN_CODE);
             send(temp_self, &code, strlen(code), 0);
             send(temp_opponent, &code, strlen(code), 0);
             send(temp_opponent, &command, strlen(command), 0);
+
             if (player_turn == 1) player_turn = 2;
             else player_turn = 1;
 
