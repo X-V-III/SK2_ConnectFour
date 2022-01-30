@@ -7,9 +7,6 @@ import math
 import socket
 import re
 
-HOST = '127.0.0.1'  # The server's hostname or IP address
-PORT = 8080        # The port used by the server
-
 BLUE = (0,0,255)
 BLACK = (0,0,0)
 RED = (255,0,0)
@@ -21,19 +18,19 @@ SQUARESIZE = 60
 
 # GAME METHODS ****************
 
-def create_board():
+def createBoard():
     board = np.zeros((ROW_COUNT,COLUMN_COUNT))
     return board
 
-def drop_piece(board, row, col, piece):
+def dropPiece(board, row, col, piece):
     board[row][col] = piece
 
-def get_next_open_row(board, col):
+def getNextOpenRow(board, col):
     for r in range(ROW_COUNT):
         if board[r][col] == 0:
             return r
 
-def draw_board(board):
+def drawBoard(board):
     for c in range(COLUMN_COUNT):
         for r in range(ROW_COUNT):
             pygame.draw.rect(screen, BLACK, (c*SQUARESIZE, r*SQUARESIZE+SQUARESIZE, SQUARESIZE, SQUARESIZE))
@@ -49,9 +46,9 @@ def draw_board(board):
 
 def parseAndExecuteMove(board, move, number):
     col = int(move) - 1
-    row = get_next_open_row(board, col)
-    drop_piece(board, row, col, number)
-    draw_board(board)
+    row = getNextOpenRow(board, col)
+    dropPiece(board, row, col, number)
+    drawBoard(board)
 
 def getCommand(board):
     command = ""
@@ -99,7 +96,7 @@ if __name__ == "__main__":
 
         # GAME SETUP *******************
 
-        board = create_board()
+        board = createBoard()
         
         myColor = RED
         if (myPlayerNumber == '2'):
@@ -119,7 +116,7 @@ if __name__ == "__main__":
         RADIUS = int(SQUARESIZE/2 - 5)
 
         screen = pygame.display.set_mode(size)
-        draw_board(board)
+        drawBoard(board)
         pygame.display.update()
 
         myfont = pygame.font.SysFont("monospace", 35)
@@ -148,7 +145,7 @@ if __name__ == "__main__":
                     print("You Win!")
                     label = myfont.render("Player " + myPlayerNumber + " wins!", 1, WHITE)
                     screen.blit(label, (20,20))
-                    draw_board(board)
+                    drawBoard(board)
                     pygame.time.wait(5000)
                     break;
 
@@ -170,7 +167,7 @@ if __name__ == "__main__":
                     print("You Lost :(")
                     label = myfont.render("Player " + opponentNumber + " wins!", 1, WHITE)
                     screen.blit(label, (20,20))
-                    draw_board(board)
+                    drawBoard(board)
                     pygame.time.wait(5000)
                     break;
 
